@@ -4,122 +4,110 @@ from models import ALOCC_Model
 from utils import pp, visualize, to_json, show_all_variables
 import tensorflow as tf
 
-flags = tf.app.flags
-flags.DEFINE_integer("epoch", 40, "Epoch to train [25]")
-flags.DEFINE_float("learning_rate", 0.002, "Learning rate of for adam [0.0002]")
-flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
-flags.DEFINE_integer("attention_label", 1, "Conditioned label that growth attention of training label [1]")
-flags.DEFINE_float("r_alpha", 0.2, "Refinement parameter [0.2]")
-flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
-flags.DEFINE_integer("batch_size",128, "The size of batch images [64]")
-flags.DEFINE_integer("input_height", 45, "The size of image to use. [45]")
-flags.DEFINE_integer("input_width", None, "The size of image to use. If None, same value as input_height [None]")
-flags.DEFINE_integer("output_height", 45, "The size of the output images to produce [45]")
-flags.DEFINE_integer("output_width", None, "The size of the output images to produce. If None, same value as output_height [None]")
-flags.DEFINE_string("dataset", "UCSD", "The name of dataset [UCSD, mnist]")
-flags.DEFINE_string("dataset_address", "./dataset/UCSD_Anomaly_Dataset.v1p2/UCSDped2/Train", "The path of dataset")
-flags.DEFINE_string("input_fname_pattern", "*", "Glob pattern of filename of input images [*]")
-flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
-flags.DEFINE_string("log_dir", "log", "Directory name to save the log [log]")
-flags.DEFINE_string("sample_dir", "samples", "Directory name to save the image samples [samples]")
-flags.DEFINE_boolean("train", True, "True for training, False for testing [False]")
-FLAGS = flags.FLAGS
+
+# Replace TensorFlow Flags with argparse for better compatibility in TF2
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train or Test ALOCC Model")
+    parser.add_argument("--epoch", type=int, default=40, help="Epoch to train")
+    parser.add_argument("--learning_rate", type=float, default=0.002, help="Learning rate for Adam")
+    parser.add_argument("--beta1", type=float, default=0.5, help="Momentum term of Adam")
+    parser.add_argument("--attention_label", type=int, default=1, help="Conditioned label that growth attention of training label")
+    parser.add_argument("--r_alpha", type=float, default=0.2, help="Refinement parameter")
+    parser.add_argument("--train_size", type=float, default=np.inf, help="The size of train images")
+    parser.add_argument("--batch_size", type=int, default=128, help="The size of batch images")
+    parser.add_argument("--input_height", type=int, default=45, help="The size of image to use")
+    parser.add_argument("--input_width", type=int, default=None, help="The size of image to use")
+    parser.add_argument("--output_height", type=int, default=45, help="The size of the output images to produce")
+    parser.add_argument("--output_width", type=int, default=None, help="The size of the output images to produce")
+    parser.add_argument("--dataset", type=str, default="UCSD", help="The name of the dataset")
+    parser.add_argument("--dataset_address", type=str, default="./dataset/UCSD_Anomaly_Dataset.v1p2/UCSDped2/Train", help="The path of dataset")
+    parser.add_argument("--input_fname_pattern", type=str, default="*", help="Glob pattern of input filenames")
+    parser.add_argument("--checkpoint_dir", type=str, default="checkpoint", help="Directory to save checkpoints")
+    parser.add_argument("--log_dir", type=str, default="log", help="Directory to save logs")
+    parser.add_argument("--sample_dir", type=str, default="samples", help="Directory to save image samples")
+    parser.add_argument("--train", type=bool, default=True, help="True for training, False for testing")
 
 
-def check_some_assertions():
-    """
-    to check some assertions in inputs and also check sth else.
-    """
-    if FLAGS.input_width is None:
-        FLAGS.input_width = FLAGS.input_height
-    if FLAGS.output_width is None:
-        FLAGS.output_width = FLAGS.output_height
 
-    if not os.path.exists(FLAGS.checkpoint_dir):
-        os.makedirs(FLAGS.checkpoint_dir)
-    if not os.path.exists(FLAGS.log_dir):
-        os.makedirs(FLAGS.log_dir)
-    if not os.path.exists(FLAGS.sample_dir):
-        os.makedirs(FLAGS.sample_dir)
 
-def main(_):
-    """
-    The main function for training steps     
-    """
-    pp.pprint(flags.FLAGS.__flags)
+
+
+    return parser.parse_args()
+
+def check_some_assertions(flags):
+    if flags.input_width is None:
+        flags.input_width = flags.input_height
+    if flags.output_width is None:
+        flags.output_width = flags.output_height
+
+    os.makedirs(flags.checkpoint_dir, exist_ok=True)
+    os.makedirs(flags.log_dir, exist_ok=True)
+    os.makedirs(flags.sample_dir, exist_ok=True)
+
+def main():
+    flags = parse_args()
+    pp.pprint(vars(flags))
+
     n_per_itr_print_results = 100
     kb_work_on_patch = True
 
-    # ---------------------------------------------------------------------------------------------
-    # ---------------------------------------------------------------------------------------------
-    # Manual Switchs ------------------------------------------------------------------------------
-    # ---------------------------------------------------------------------------------------------
-    # DATASET PARAMETER : UCSD
-    #FLAGS.dataset = 'UCSD'
-    #FLAGS.dataset_address = './dataset/UCSD_Anomaly_Dataset.v1p2/UCSDped2/Train'
-
-    nd_input_frame_size = (240, 360)
+    # Dataset and slicing parameters
+    nd_input_frame_size = (240, 360)  # Example for UCSD
     nd_slice_size = (45, 45)
     n_stride = 25
     n_fetch_data = 600
-    # ---------------------------------------------------------------------------------------------
-    # # DATASET PARAMETER : MNIST
-    # FLAGS.dataset = 'mnist'
-    # FLAGS.dataset_address = './dataset/mnist'
-    # nd_input_frame_size = (28, 28)
-    # nd_slice_size = (28, 28)
 
-    FLAGS.train = True
+    flags.input_width = nd_slice_size[0]
+    flags.input_height = nd_slice_size[1]
+    flags.output_width = nd_slice_size[0]
+    flags.output_height = nd_slice_size[1]
 
-    FLAGS.input_width = nd_slice_size[0]
-    FLAGS.input_height = nd_slice_size[1]
-    FLAGS.output_width = nd_slice_size[0]
-    FLAGS.output_height = nd_slice_size[1]
+    flags.sample_dir = f'export/{flags.dataset}_{nd_slice_size[0]}.{nd_slice_size[1]}'
 
-    FLAGS.sample_dir = 'export/'+FLAGS.dataset +'_%d.%d'%(nd_slice_size[0],nd_slice_size[1])
-    FLAGS.input_fname_pattern = '*'
+    check_some_assertions(flags)
 
-    check_some_assertions()
+    # Configure GPUs in TF2
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if physical_devices:
+        try:
+            for device in physical_devices:
+                tf.config.experimental.set_memory_growth(device, True)
+        except RuntimeError as e:
+            print(e)
 
-    # manual handling of GPU
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
-    run_config = tf.ConfigProto(gpu_options=gpu_options)
-    run_config.gpu_options.allow_growth=True
+    tmp_model = ALOCC_Model(
+        input_width=flags.input_width,
+        input_height=flags.input_height,
+        output_width=flags.output_width,
+        output_height=flags.output_height,
+        batch_size=flags.batch_size,
+        sample_num=flags.batch_size,
+        attention_label=flags.attention_label,
+        r_alpha=flags.r_alpha,
+        dataset_name=flags.dataset,
+        dataset_address=flags.dataset_address,
+        input_fname_pattern=flags.input_fname_pattern,
+        checkpoint_dir=flags.checkpoint_dir,
+        is_training=flags.train,
+        log_dir=flags.log_dir,
+        sample_dir=flags.sample_dir,
+        nd_patch_size=nd_slice_size,
+        n_stride=n_stride,
+        n_per_itr_print_results=n_per_itr_print_results,
+        kb_work_on_patch=kb_work_on_patch,
+        nd_input_frame_size=nd_input_frame_size,
+        n_fetch_data=n_fetch_data
+    )
 
-    with tf.Session(config=run_config) as sess:
-        tmp_model = ALOCC_Model(
-                    sess,
-                    input_width=FLAGS.input_width,
-                    input_height=FLAGS.input_height,
-                    output_width=FLAGS.output_width,
-                    output_height=FLAGS.output_height,
-                    batch_size=FLAGS.batch_size,
-                    sample_num=FLAGS.batch_size,
-                    attention_label=FLAGS.attention_label,
-                    r_alpha=FLAGS.r_alpha,
-                    dataset_name=FLAGS.dataset,
-                    dataset_address=FLAGS.dataset_address,
-                    input_fname_pattern=FLAGS.input_fname_pattern,
-                    checkpoint_dir=FLAGS.checkpoint_dir,
-                    is_training = FLAGS.train,
-                    log_dir=FLAGS.log_dir,
-                    sample_dir=FLAGS.sample_dir,
-                    nd_patch_size=nd_slice_size,
-                    n_stride=n_stride,
-                    n_per_itr_print_results=n_per_itr_print_results,
-                    kb_work_on_patch=kb_work_on_patch,
-                    nd_input_frame_size = nd_input_frame_size,
-                    n_fetch_data=n_fetch_data)
+    if flags.train:
+        print('Program is in Train Mode')
+        tmp_model.train(flags)
+    else:
+        if not tmp_model.load(flags.checkpoint_dir):
+            print('Program is in Test Mode')
+            raise Exception("[!] Train a model first, then run test mode from file test.py")
 
-        #show_all_variables()
-
-        if FLAGS.train:
-            print('Program is on Train Mode')
-            tmp_model.train(FLAGS)
-        else:
-            if not tmp_model.load(FLAGS.checkpoint_dir)[0]:
-                print('Program is on Test Mode')
-                raise Exception("[!] Train a model first, then run test mode from file test.py")
-
-if __name__ == '__main__':
-  tf.app.run()
+if __name__ == "__main__":
+    main()
