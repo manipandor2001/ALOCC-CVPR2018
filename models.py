@@ -23,6 +23,26 @@ class ALOCC_Model(object):
                  checkpoint_dir=None, log_dir=None, sample_dir=None, r_alpha=0.2,
                  kb_work_on_patch=True, nd_input_frame_size=(240, 360), nd_patch_size=(10, 10), n_stride=1,
                  n_fetch_data=10, n_per_itr_print_results=500):
+        """
+        This is the main class of our Adversarially Learned One-Class Classifier for Novelty Detection
+        :param sess: TensorFlow session      
+        :param batch_size: The size of batch. Should be specified before training. [128]
+        :param attention_label: Conditioned label that growth attention of training label [1]
+        :param r_alpha: Refinement parameter [0.2]        
+        :param z_dim:  (optional) Dimension of dim for Z. [100] 
+        :param gf_dim: (optional) Dimension of gen filters in first conv layer. [64] 
+        :param df_dim: (optional) Dimension of discrim filters in first conv layer. [64] 
+        :param gfc_dim: (optional) Dimension of gen units for for fully connected layer. [1024] 
+        :param dfc_dim: (optional) Dimension of discrim units for fully connected layer. [1024] 
+        :param c_dim: (optional) Dimension of image color. For grayscale input, set to 1. [3]  
+        :param sample_dir: Directory address which save some samples [.]
+        :param kb_work_on_patch: Boolean value for working on PatchBased System or not [True]
+        :param nd_input_frame_size:  Input frame size 
+        :param nd_patch_size:  Input patch size
+        :param n_stride: PatchBased data preprocessing stride
+        :param n_fetch_data: Fetch size of Data 
+        :param n_per_itr_print_results: # of printed iteration   
+        """
 
         self.n_per_itr_print_results = n_per_itr_print_results
         self.nd_input_frame_size = nd_input_frame_size
@@ -65,11 +85,11 @@ class ALOCC_Model(object):
 
         if self.dataset_name == 'mnist':
             # For MNIST dataset
-               (x_train, y_train), (_, _) = tf.keras.datasets.mnist.load_data()
-    
-                specific_idx = np.where(y_train == self.attention_label)[0]
-                self.data = x_train[specific_idx].reshape(-1, 28, 28, 1) / 255.0  # Normalize to [0,1]
-                self.c_dim = 1
+            (x_train, y_train), (_, _) = tf.keras.datasets.mnist.load_data()
+
+            specific_idx = np.where(y_train == self.attention_label)[0]
+            self.data = x_train[specific_idx].reshape(-1, 28, 28, 1) / 255.0  # Normalize to [0,1]
+            self.c_dim = 1
 
         elif self.dataset_name == 'UCSD':
             # For UCSD dataset
@@ -98,12 +118,13 @@ class ALOCC_Model(object):
             assert('Error in loading dataset')
 
 
+    
 
-        self.generator = generator()
-        self.discriminator = discriminator()
+        self.generator = self.generator()
+        self.discriminator = self.discriminator()
 
        
-        self.model_dir = model_dir()
+        self.model_dir = self.model_dir()
       
         
 
@@ -194,8 +215,8 @@ class ALOCC_Model(object):
             save_path = os.path.join(self.sample_dir, f"sample_epoch_{epoch}_step_{step}_idx_{idx}.png")
             tf.keras.preprocessing.image.save_img(save_path, sample.numpy())
     
-    def generator(z, output_height, output_width, df_dim, gf_dim, c_dim, batch_size):
-        s_h, s_w = output_height, output_width
+    def generator(self):
+        s_h, s_w = self.output_height, self.output_width
         s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
         s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
         s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
@@ -209,13 +230,14 @@ class ALOCC_Model(object):
         g_bn6 = tf.keras.layers.BatchNormalization()
 
         # Encoder stages
-        hae0 = tf.keras.layers.ReLU()(g_bn4(tf.keras.layers.Conv2D(df_dim * 2, kernel_size=3, strides=2, padding='same')(z)))
-        hae1 = tf.keras.layers.ReLU()(g_bn5(tf.keras.layers.Conv2D(df_dim * 4, kernel_size=3, strides=2, padding='same')(hae0)))
-        hae2 = tf.keras.layers.ReLU()(g_bn6(tf.keras.layers.Conv2D(df_dim * 8, kernel_size=3, strides=2, padding='same')(hae1)))
+      
+        hae0 = tf.keras.layers.ReLU()(g_bn4(tf.keras.layers.Conv2D(self.df_dim * 2, kernel_size=3, strides=2, padding='same')(self.z))) #error z_dim
+        hae1 = tf.keras.layers.ReLU()(g_bn5(tf.keras.layers.Conv2D(self.df_dim * 4, kernel_size=3, strides=2, padding='same')(hae0)))
+        hae2 = tf.keras.layers.ReLU()(g_bn6(tf.keras.layers.Conv2D(self.df_dim * 8, kernel_size=3, strides=2, padding='same')(hae1)))
 
         # Decoder stages (Deconvolution / Upsample)
-        h2 = tf.keras.layers.ReLU()(g_bn2(tf.keras.layers.Conv2DTranspose(gf_dim * 2, kernel_size=3, strides=2, padding='same')(hae2)))
-        h3 = tf.keras.layers.ReLU()(g_bn3(tf.keras.layers.Conv2DTranspose(gf_dim, kernel_size=3, strides=2, padding='same')(h2)))
+        h2 = tf.keras.layers.ReLU()(g_bn2(tf.keras.layers.Conv2DTranspose(self.gf_dim * 2, kernel_size=3, strides=2, padding='same')(hae2)))
+        h3 = tf.keras.layers.ReLU()(g_bn3(tf.keras.layers.Conv2DTranspose(self.gf_dim, kernel_size=3, strides=2, padding='same')(h2)))
         h4 = tf.keras.layers.Conv2DTranspose(c_dim, kernel_size=3, strides=2, padding='same')(h3)
 
         return tf.nn.tanh(h4)
