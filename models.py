@@ -276,102 +276,102 @@ class ALOCC_Model(object):
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
 
-def sampler(self, z, y=None):
-    """Generates output using the generator network."""
-    # Output dimensions
-    s_h, s_w = self.output_height, self.output_width
-    s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
-    s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
-    s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
-    s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
-
-    # Encoder Network
-    hae0 = lrelu(self.g_bn4(tf.keras.layers.Conv2D(self.df_dim * 2, kernel_size=4, strides=2,
-                                                  padding='same', name='g_encoder_h0_conv')(z)))
-    hae1 = lrelu(self.g_bn5(tf.keras.layers.Conv2D(self.df_dim * 4, kernel_size=4, strides=2,
-                                                  padding='same', name='g_encoder_h1_conv')(hae0)))
-    hae2 = lrelu(self.g_bn6(tf.keras.layers.Conv2D(self.df_dim * 8, kernel_size=4, strides=2,
-                                                  padding='same', name='g_encoder_h2_conv')(hae1)))
-
-    # Decoder Network (deconvolution using Conv2DTranspose)
-    h2 = tf.keras.layers.Conv2DTranspose(self.gf_dim * 2, kernel_size=4, strides=2, padding='same',
-                                         name='g_decoder_h1')(hae2)
-    h2 = tf.nn.relu(self.g_bn2(h2))
-
-    h3 = tf.keras.layers.Conv2DTranspose(self.gf_dim * 1, kernel_size=4, strides=2, padding='same',
-                                         name='g_decoder_h0')(h2)
-    h3 = tf.nn.relu(self.g_bn3(h3))
-
-    h4 = tf.keras.layers.Conv2DTranspose(self.c_dim, kernel_size=4, strides=2, padding='same',
-                                         name='g_decoder_h00')(h3)
-
-    return tf.nn.tanh(h4, name='g_output')
-
-# Saving the model
-def save(self, checkpoint_dir, step):
-    """Saves the model checkpoint."""
-    model_dir = "{}_{}_{}_{}".format(self.dataset_name, self.batch_size, self.output_height, self.output_width)
-    checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
-
-    if not os.path.exists(checkpoint_dir):
-        os.makedirs(checkpoint_dir)
-
-    checkpoint = tf.train.Checkpoint(generator=self)
-    checkpoint.save(file_prefix=os.path.join(checkpoint_dir, "ALOCC_Model.ckpt-{}".format(step)))
-    print("Checkpoint saved at step {}".format(step))
-
-
-# Loading the model
-def load(self, checkpoint_dir):
-    """Loads the model checkpoint."""
-    model_dir = "{}_{}_{}_{}".format(self.dataset_name, self.batch_size, self.output_height, self.output_width)
-    checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
-
-    checkpoint = tf.train.Checkpoint(generator=self)
-    latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
-
-    if latest_checkpoint:
-        checkpoint.restore(latest_checkpoint)
-        print("Checkpoint restored from {}".format(latest_checkpoint))
-        return True
-    else:
-        print("Failed to find a checkpoint at {}".format(checkpoint_dir))
-        return False
-
-
-
-def f_test_frozen_model(self, lst_image_slices=[]):
-    """Tests the frozen model and saves generated images."""
-    lst_generated_img = []
-    lst_discriminator_v = []
-    tmp_shape = lst_image_slices.shape
-
-    if self.dataset_name == 'UCSD':
-        tmp_lst_slices = lst_image_slices.reshape(-1, tmp_shape[2], tmp_shape[3], 1)
-    else:
-        tmp_lst_slices = lst_image_slices
-
-    batch_idxs = len(tmp_lst_slices) // self.batch_size
-    print('Start new process ...')
-
-    for i in range(batch_idxs):
-        batch_data = tmp_lst_slices[i * self.batch_size:(i + 1) * self.batch_size]
-
-        results_g = self.G(batch_data, training=False)  # Run generator inference
-        results_d = self.D_logits(batch_data, training=False)
-
-        lst_discriminator_v.extend(results_d)
-        lst_generated_img.extend(results_g)
-        print('Processed batch {}/{}'.format(i + 1, batch_idxs))
-
-    # Save montage of images
-    input_montage = montage(np.array(tmp_lst_slices)[:, :, :, 0])
-    generated_montage = montage(np.array(lst_generated_img)[:, :, :, 0])
-
-    imageio.imwrite('./' + self.sample_dir + '/ALOCC_generated.jpg', generated_montage)
-    imageio.imwrite('./' + self.sample_dir + '/ALOCC_input.jpg', input_montage)
-
-
-
+    def sampler(self, z, y=None):
+        """Generates output using the generator network."""
+        # Output dimensions
+        s_h, s_w = self.output_height, self.output_width
+        s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
+        s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
+        s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
+        s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
     
-
+        # Encoder Network
+        hae0 = lrelu(self.g_bn4(tf.keras.layers.Conv2D(self.df_dim * 2, kernel_size=4, strides=2,
+                                                      padding='same', name='g_encoder_h0_conv')(z)))
+        hae1 = lrelu(self.g_bn5(tf.keras.layers.Conv2D(self.df_dim * 4, kernel_size=4, strides=2,
+                                                      padding='same', name='g_encoder_h1_conv')(hae0)))
+        hae2 = lrelu(self.g_bn6(tf.keras.layers.Conv2D(self.df_dim * 8, kernel_size=4, strides=2,
+                                                      padding='same', name='g_encoder_h2_conv')(hae1)))
+    
+        # Decoder Network (deconvolution using Conv2DTranspose)
+        h2 = tf.keras.layers.Conv2DTranspose(self.gf_dim * 2, kernel_size=4, strides=2, padding='same',
+                                             name='g_decoder_h1')(hae2)
+        h2 = tf.nn.relu(self.g_bn2(h2))
+    
+        h3 = tf.keras.layers.Conv2DTranspose(self.gf_dim * 1, kernel_size=4, strides=2, padding='same',
+                                             name='g_decoder_h0')(h2)
+        h3 = tf.nn.relu(self.g_bn3(h3))
+    
+        h4 = tf.keras.layers.Conv2DTranspose(self.c_dim, kernel_size=4, strides=2, padding='same',
+                                             name='g_decoder_h00')(h3)
+    
+        return tf.nn.tanh(h4, name='g_output')
+    
+    # Saving the model
+    def save(self, checkpoint_dir, step):
+        """Saves the model checkpoint."""
+        model_dir = "{}_{}_{}_{}".format(self.dataset_name, self.batch_size, self.output_height, self.output_width)
+        checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
+    
+        if not os.path.exists(checkpoint_dir):
+            os.makedirs(checkpoint_dir)
+    
+        checkpoint = tf.train.Checkpoint(generator=self)
+        checkpoint.save(file_prefix=os.path.join(checkpoint_dir, "ALOCC_Model.ckpt-{}".format(step)))
+        print("Checkpoint saved at step {}".format(step))
+    
+    
+    # Loading the model
+    def load(self, checkpoint_dir):
+        """Loads the model checkpoint."""
+        model_dir = "{}_{}_{}_{}".format(self.dataset_name, self.batch_size, self.output_height, self.output_width)
+        checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
+    
+        checkpoint = tf.train.Checkpoint(generator=self)
+        latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
+    
+        if latest_checkpoint:
+            checkpoint.restore(latest_checkpoint)
+            print("Checkpoint restored from {}".format(latest_checkpoint))
+            return True
+        else:
+            print("Failed to find a checkpoint at {}".format(checkpoint_dir))
+            return False
+    
+    
+    
+    def f_test_frozen_model(self, lst_image_slices=[]):
+        """Tests the frozen model and saves generated images."""
+        lst_generated_img = []
+        lst_discriminator_v = []
+        tmp_shape = lst_image_slices.shape
+    
+        if self.dataset_name == 'UCSD':
+            tmp_lst_slices = lst_image_slices.reshape(-1, tmp_shape[2], tmp_shape[3], 1)
+        else:
+            tmp_lst_slices = lst_image_slices
+    
+        batch_idxs = len(tmp_lst_slices) // self.batch_size
+        print('Start new process ...')
+    
+        for i in range(batch_idxs):
+            batch_data = tmp_lst_slices[i * self.batch_size:(i + 1) * self.batch_size]
+    
+            results_g = self.G(batch_data, training=False)  # Run generator inference
+            results_d = self.D_logits(batch_data, training=False)
+    
+            lst_discriminator_v.extend(results_d)
+            lst_generated_img.extend(results_g)
+            print('Processed batch {}/{}'.format(i + 1, batch_idxs))
+    
+        # Save montage of images
+        input_montage = montage(np.array(tmp_lst_slices)[:, :, :, 0])
+        generated_montage = montage(np.array(lst_generated_img)[:, :, :, 0])
+    
+        imageio.imwrite('./' + self.sample_dir + '/ALOCC_generated.jpg', generated_montage)
+        imageio.imwrite('./' + self.sample_dir + '/ALOCC_input.jpg', input_montage)
+    
+    
+    
+        
+    
