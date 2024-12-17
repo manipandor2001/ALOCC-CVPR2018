@@ -65,11 +65,12 @@ class ALOCC_Model(object):
 
         if self.dataset_name == 'mnist':
             # For MNIST dataset
-            from tensorflow.examples.tutorials.mnist import input_data
-            mnist = input_data.read_data_sets(self.dataset_address)
-            specific_idx = np.where(mnist.train.labels == self.attention_label)[0]
-            self.data = mnist.train.images[specific_idx].reshape(-1, 28, 28, 1)
-            self.c_dim = 1
+               (x_train, y_train), (_, _) = tf.keras.datasets.mnist.load_data()
+    
+                specific_idx = np.where(y_train == self.attention_label)[0]
+                self.data = x_train[specific_idx].reshape(-1, 28, 28, 1) / 255.0  # Normalize to [0,1]
+                self.c_dim = 1
+
         elif self.dataset_name == 'UCSD':
             # For UCSD dataset
             self.nStride = n_stride
